@@ -1384,13 +1384,18 @@ class IOCJson(object):
                 if len(_prop) > 1:
                     return iocage_lib.ioc_common.get_nested_key(settings, prop)
                 else:
-                    return iocage_lib.ioc_exec.IOCExec(
+                    with iocage_lib.ioc_exec.IOCExec(
                         prop_cmd,
                         uuid,
                         _path,
-                        plugin=True,
-                        msg_return=True,
-                        silent=True).exec_jail()
+                        plugin=True
+                    ) as _exec:
+                        out = _exec.exec_jail()
+                        prop_out = iocage_lib.ioc_common.consume_and_log(
+                            out,
+                            return_list=True
+                        )
+                        return prop_out[0]
             else:
                 return settings
         except KeyError:
@@ -1460,8 +1465,15 @@ class IOCJson(object):
                     },
                     _callback=self.callback,
                     silent=self.silent)
-            iocage_lib.ioc_exec.IOCExec(
-                prop_cmd, uuid, _path).exec_jail()
+            with iocage_lib.ioc_exec.IOCExec(
+                prop_cmd, uuid, _path
+            ) as _exec:
+                output = _exec.exec_jail()
+                iocage_lib.ioc_common.consume_and_log(
+                    output,
+                    callback=self.callback,
+                    silent=True
+                )
 
             if restart:
                 iocage_lib.ioc_common.logit(
@@ -1478,10 +1490,17 @@ class IOCJson(object):
                     },
                     _callback=self.callback,
                     silent=self.silent)
-                iocage_lib.ioc_exec.IOCExec(
+                with iocage_lib.ioc_exec.IOCExec(
                     servicerestart,
                     uuid,
-                    _path).exec_jail()
+                    _path
+                ) as _exec:
+                    output = _exec.exec_jail()
+                    iocage_lib.ioc_common.consume_and_log(
+                        output,
+                        callback=self.callback,
+                        silent=True
+                    )
 
             iocage_lib.ioc_common.logit(
                 {

@@ -739,3 +739,59 @@ def runscript(script):
         return True, out.rstrip("\n")
 
     return True, None
+
+
+def match_to_dir(iocroot, uuid, old_uuid=None):
+    """
+    Checks for existence of jail/template with specified uuid.
+    Replaces dots and underscores in the uuid with pattern [._] and returns
+    the template- or jail directory that matches, or returns None if no match
+    was found.
+    Background: jail(8) doesn't allow dots in the name, they will be replaced
+    with underscores. Because of this, foo.bar and foo_bar will be considered
+    identical, as they cannot coexist.
+    """
+    uuid = uuid.replace(".", "_").replace("_", "[._]")
+    matches = glob.glob(f"{iocroot}/jails/{uuid}") \
+        + glob.glob(f"{iocroot}/templates/{uuid}")
+
+    if old_uuid:
+        try:
+            matches.remove(old_uuid)
+        except ValueError:
+            pass
+
+    if matches:
+        return matches[0]
+    else:
+        return None
+
+
+def consume_and_log(exec_gen, return_list=False, callback=None, silent=False):
+    """
+    Consume a generator and massage the output with lines
+    """
+    final_output = ''
+    output_list = []
+
+    for stdout, _ in exec_gen:
+        if silent:
+            continue
+
+        final_output += stdout.decode()
+
+        if not final_output.endswith('\n'):
+            continue
+
+        if return_list:
+            output_list.append(final_output.rstrip())
+        else:
+            logit({
+                "level": "INFO",
+                "message": final_output.rstrip()
+            },
+                _callback=callback)
+        final_output = ''
+
+    if return_list:
+        return output_list
