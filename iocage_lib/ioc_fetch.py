@@ -885,7 +885,7 @@ class IOCFetch(object):
                 fetch_cmd,
                 uuid,
                 f"{self.iocroot}/jails/{uuid}",
-                pkg=True,
+                unjailed=True,
                 callback=self.callback,
                 su_env=fetch_env
             ) as _exec:
@@ -901,7 +901,7 @@ class IOCFetch(object):
                 fetch_install_cmd,
                 uuid,
                 f"{self.iocroot}/jails/{uuid}",
-                pkg=True,
+                unjailed=True,
                 callback=self.callback,
                 su_env=fetch_env
             ) as _exec:
