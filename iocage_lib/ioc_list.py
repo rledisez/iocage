@@ -60,6 +60,9 @@ class IOCList(object):
     def list_datasets(self):
         """Lists the datasets of given type."""
 
+        # We want to ensure that `defaults.json` is always present
+        iocage_lib.ioc_json.IOCJson().json_check_default_config()
+
         if self.list_type == "all" or self.list_type == "uuid":
             ds = self.zfs.get_dataset(f"{self.pool}/iocage/jails").children
         elif self.list_type == "base":
