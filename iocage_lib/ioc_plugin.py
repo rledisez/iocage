@@ -23,6 +23,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 """iocage plugin module"""
 import collections
+import contextlib
 import datetime
 import distutils.dir_util
 import json
@@ -33,7 +34,7 @@ import shutil
 import subprocess as su
 
 import requests
-from dulwich import porcelain
+import git
 
 import iocage_lib.ioc_common
 import iocage_lib.ioc_create
@@ -43,7 +44,6 @@ import iocage_lib.ioc_json
 import iocage_lib.ioc_upgrade
 import libzfs
 import texttable
-import dulwich.client
 
 
 class IOCPlugin(object):
@@ -554,7 +554,7 @@ fingerprint: {fingerprint}
                 _callback=self.callback,
                 silent=self.silent)
 
-            self.__clone_repo(conf['artifact'], f'{jaildir}/plugin')
+            self._clone_repo(self.branch, conf['artifact'], f'{jaildir}/plugin', callback=self.callback)
 
             with open(f"{jaildir}/{uuid.rsplit('_', 1)[0]}.json", "w") as f:
                 f.write(json.dumps(conf, indent=4, sort_keys=True))
@@ -640,7 +640,7 @@ fingerprint: {fingerprint}
 
         if os.geteuid() == 0:
             try:
-                self.__clone_repo(git_server, git_working_dir)
+                self._clone_repo(self.branch, git_server, git_working_dir, callback=self.callback)
             except Exception as err:
                 iocage_lib.ioc_common.logit(
                     {
@@ -876,24 +876,14 @@ fingerprint: {fingerprint}
 
         git_working_dir = f"{self.iocroot}/.plugin_index"
 
-        try:
-            with open("/dev/null", "wb") as devnull:
-                porcelain.pull(git_working_dir, git_server,
-                               outstream=devnull, errstream=devnull)
-        except Exception as err:
-            iocage_lib.ioc_common.logit(
-                {
-                    "level": "EXCEPTION",
-                    "message": err
-                },
-                _callback=self.callback)
+        self._clone_repo(self.branch, git_server, git_working_dir, callback=self.callback)
 
     def __update_pull_plugin_artifact__(self, plugin_conf):
         """Pull the latest artifact to be sure we're up to date"""
         path = f"{self.iocroot}/jails/{self.plugin}"
 
         shutil.rmtree(f"{path}/plugin", ignore_errors=True)
-        self.__clone_repo(plugin_conf['artifact'], f'{path}/plugin')
+        self._clone_repo(self.branch, plugin_conf['artifact'], f'{path}/plugin', callback=self.callback)
 
         try:
             distutils.dir_util.copy_tree(
@@ -1246,29 +1236,69 @@ fingerprint: {fingerprint}
         fetch_args = {'release': release, 'eol': False}
         iocage_lib.iocage.IOCage(silent=self.silent).fetch(**fetch_args)
 
-    def __clone_repo(self, repo_url, destination):
+    @staticmethod
+    def _verify_git_repo(repo_url, destination):
+        verified = False
+        with contextlib.suppress(
+            git.exc.InvalidGitRepositoryError,
+            git.exc.NoSuchPathError,
+            AttributeError,
+        ):
+            repo = git.Repo(destination)
+            verified = any(u == repo_url for u in repo.remotes.origin.urls)
+
+        return verified
+
+    @staticmethod
+    def _clone_repo(ref, repo_url, destination, depth=None, callback=None):
         """
         This is to replicate the functionality of cloning/pulling a repo
         """
+        branch = ref
         try:
-            with open('/dev/null', 'wb') as devnull:
-                porcelain.pull(destination, repo_url, errstream=devnull)
-                repo = porcelain.open_repo(destination)
-        except dulwich.errors.NotGitRepository:
-            with open('/dev/null', 'wb') as devnull:
-                repo = porcelain.clone(
-                    repo_url, destination, errstream=devnull
-                )
+            if not IOCPlugin._verify_git_repo(repo_url, destination):
+                raise git.exc.InvalidGitRepositoryError()
 
-        remote_refs = porcelain.fetch(repo, repo_url)
-        ref = f'refs/heads/{self.branch}'.encode()
+            # "Pull"
+            repo = git.Repo(destination)
+            origin = repo.remotes.origin
+            ref = 'master' if f'origin/{ref}' not in repo.refs else ref
+            for command in [
+                ['checkout', ref],
+                ['pull']
+            ]:
+                cp = su.Popen(['git', '-C', destination] + command, stderr=su.DEVNULL, stdout=su.DEVNULL)
+                cp.communicate()
+                if cp.returncode:
+                    raise su.CalledProcessError(cp.returncode, cp.args)
+        except (
+            su.CalledProcessError,
+            git.exc.InvalidGitRepositoryError,
+            git.exc.NoSuchPathError
+        ):
+            # Clone
+            shutil.rmtree(destination, ignore_errors=True)
+            kwargs = {'env': os.environ.copy(), 'depth': depth}
+            repo = git.Repo.clone_from(
+                repo_url, destination, **{
+                    k: v for k, v in kwargs.items() if v
+                }
+            )
+            origin = repo.remotes.origin
 
-        try:
-            repo[ref] = remote_refs[ref]
-        except KeyError:
-            ref = b'refs/heads/master'
+        if not origin.exists():
+            iocage_lib.ioc_common.logit(
+                {
+                    'level': 'EXCEPTION',
+                    'message': f'Origin: {origin.url} does not exist!'
+                },
+                _callback=callback
+            )
+
+        if f'origin/{ref}' not in repo.refs:
+            ref = 'master'
             msgs = [
-                f'\nBranch {self.branch} does not exist at {repo_url}!',
+                f'\nBranch {branch} does not exist at {repo_url}!',
                 'Using "master" branch for plugin, this may not work '
                 'with your RELEASE'
             ]
@@ -1279,12 +1309,8 @@ fingerprint: {fingerprint}
                         'level': 'INFO',
                         'message': msg
                     },
-                    _callback=self.callback)
+                    _callback=callback
+                )
 
-            repo[ref] = remote_refs[ref]
-
-        tree = repo[ref].tree
-
-        # Let git reflect reality
-        repo.reset_index(tree)
-        repo.refs.set_symbolic_ref(b'HEAD', ref)
+        # Time to make this reality
+        repo.git.checkout(ref)
