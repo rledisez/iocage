@@ -63,7 +63,7 @@ def print_version(ctx, param, value):
 
     if not value or ctx.resilient_parsing:
         return
-    print("Version\tFreeNAS 11.2-U4")
+    print("Version\tFreeNAS 11.2-U6")
     sys.exit()
 
 
