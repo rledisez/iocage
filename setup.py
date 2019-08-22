@@ -53,7 +53,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        'dulwich>=0.18.6',
+        'GitPython>=2.1.11',
         'netifaces>=0.10.6',
         'libzfs'
     ],
