@@ -1258,7 +1258,9 @@ fingerprint: {fingerprint}
         """
         branch = ref
         try:
-            if not IOCPlugin._verify_git_repo(repo_url, destination):
+            if os.path.exists(destination) and not IOCPlugin._verify_git_repo(
+                repo_url, destination
+            ):
                 raise git.exc.InvalidGitRepositoryError()
 
             # "Pull"
@@ -1269,15 +1271,32 @@ fingerprint: {fingerprint}
                 ['checkout', ref],
                 ['pull']
             ]:
-                cp = su.Popen(['git', '-C', destination] + command, stderr=su.DEVNULL, stdout=su.DEVNULL)
-                cp.communicate()
+                cp = su.Popen(['git', '-C', destination] + command, stderr=su.PIPE, stdout=su.PIPE)
+                o, e = cp.communicate()
                 if cp.returncode:
-                    raise su.CalledProcessError(cp.returncode, cp.args)
+                    raise su.CalledProcessError(cp.returncode, cp.args, stderr=e)
         except (
             su.CalledProcessError,
             git.exc.InvalidGitRepositoryError,
             git.exc.NoSuchPathError
-        ):
+        ) as e:
+
+            basic_msg = 'Failed to update git repository:'
+
+            if isinstance(e, git.exc.NoSuchPathError):
+                f_msg = 'Cloning git repository'
+            elif isinstance(e, git.exc.InvalidGitRepositoryError):
+                f_msg = f'{basic_msg} Invalid Git Repository'
+            else:
+                f_msg = f'{basic_msg} {e.stderr.decode()}'
+
+            iocage_lib.ioc_common.logit(
+                {
+                    'level': 'ERROR',
+                    'message': f_msg
+                }
+            )
+
             # Clone
             shutil.rmtree(destination, ignore_errors=True)
             kwargs = {'env': os.environ.copy(), 'depth': depth}
