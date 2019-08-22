@@ -88,12 +88,11 @@ class IOCPlugin(object):
         _json = f"{self.iocroot}/.plugin_index/{_json}.json" if not \
             _json.endswith(".json") else _json
 
-        try:
-            with open(f"{self.iocroot}/.plugin_index/INDEX", "r") as plugins:
-                plugins = json.load(plugins)
-        except FileNotFoundError:
-            # Fresh dataset, time to fetch fresh INDEX
-            self.fetch_plugin_index(props)
+        if not os.path.exists(f'{self.iocroot}/.plugin_index/INDEX'):
+            self.__clone_pull_plugin_index()
+
+        with open(f"{self.iocroot}/.plugin_index/INDEX", "r") as plugins:
+            plugins = json.load(plugins)
 
         try:
             with open(_json, "r") as j:
@@ -620,15 +619,7 @@ fingerprint: {fingerprint}
             except FileNotFoundError:
                 pass
 
-    def fetch_plugin_index(self,
-                           props,
-                           _list=False,
-                           list_header=False,
-                           list_long=False,
-                           accept_license=False,
-                           icon=False,
-                           official=False):
-
+    def __clone_pull_plugin_index(self):
         if self.server == "download.freebsd.org":
             git_server = "https://github.com/freenas/iocage-ix-plugins.git"
         else:
@@ -648,6 +639,17 @@ fingerprint: {fingerprint}
                         "message": err
                     },
                     _callback=self.callback)
+
+    def fetch_plugin_index(self,
+                           props,
+                           _list=False,
+                           list_header=False,
+                           list_long=False,
+                           accept_license=False,
+                           icon=False,
+                           official=False):
+
+        self.__clone_pull_plugin_index()
 
         with open(f"{self.iocroot}/.plugin_index/INDEX", "r") as plugins:
             plugins = json.load(plugins)
