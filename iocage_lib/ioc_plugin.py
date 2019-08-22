@@ -1269,10 +1269,10 @@ fingerprint: {fingerprint}
                 ['checkout', ref],
                 ['pull']
             ]:
-                cp = su.Popen(['git', '-C', destination] + command, stderr=su.DEVNULL, stdout=su.DEVNULL)
-                cp.communicate()
+                cp = su.Popen(['git', '-C', destination] + command, stderr=su.PIPE, stdout=su.PIPE)
+                o, e = cp.communicate()
                 if cp.returncode:
-                    raise su.CalledProcessError(cp.returncode, cp.args)
+                    raise su.CalledProcessError(cp.returncode, cp.args, stderr=e)
         except (
             su.CalledProcessError,
             git.exc.InvalidGitRepositoryError,
@@ -1286,8 +1286,7 @@ fingerprint: {fingerprint}
             elif isinstance(e, git.exc.InvalidGitRepositoryError):
                 f_msg = f'{basic_msg} Invalid Git Repository'
             else:
-                f_msg = f'{basic_msg} ' \
-                    f'{b" ".join(filter(bool, e.message)).decode()}'
+                f_msg = f'{basic_msg} {e.stderr.decode()}'
 
             iocage_lib.ioc_common.logit(
                 {
