@@ -509,7 +509,9 @@ fingerprint: {fingerprint}
 
     def __fetch_plugin_post_install__(self, conf, _conf, jaildir, uuid):
         """Fetches the users artifact and runs the post install"""
-        iocage_lib.ioc_start.IOCStart(uuid, jaildir, _conf, silent=True)
+        status, jid = iocage_lib.ioc_list.IOCList().list_get_jid(uuid)
+        if not status:
+            iocage_lib.ioc_start.IOCStart(uuid, jaildir, _conf, silent=True)
 
         ip4 = _conf["ip4_addr"]
         if '|' in ip4:
