@@ -168,7 +168,7 @@ class IOCFetch(object):
         try:
             self.release = releases[int(self.release)]
             iocage_lib.ioc_common.check_release_newer(
-                self.release, self.callback, self.silent)
+                self.release, self.callback, self.silent, major_only=True)
         except IndexError:
             # Time to print the list again
 
