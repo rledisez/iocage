@@ -108,7 +108,7 @@ def cli(release, template, count, props, pkglist, basejail, thickjail, empty,
 
     if release:
         try:
-            ioc_common.check_release_newer(release)
+            ioc_common.check_release_newer(release, major_only=True)
         except ValueError:
             # We're assuming they understand the implications of a custom
             # scheme
@@ -117,7 +117,7 @@ def cli(release, template, count, props, pkglist, basejail, thickjail, empty,
             _release = ioc_common.get_jail_freebsd_version(path, release)
 
             try:
-                ioc_common.check_release_newer(_release)
+                ioc_common.check_release_newer(_release, major_only=True)
             except ValueError:
                 # We tried
                 pass
