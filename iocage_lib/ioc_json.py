@@ -433,7 +433,7 @@ class IOCConfiguration:
     @staticmethod
     def get_version():
         """Sets the iocage configuration version."""
-        version = '26'
+        version = '27'
 
         return version
 
@@ -863,6 +863,10 @@ class IOCConfiguration:
             if conf.get(option) == 'none':
                 conf[option] = 'auto'
 
+        # Version 27 key
+        if not conf.get('min_dyn_devfs_ruleset'):
+            conf['min_dyn_devfs_ruleset'] = '1000'
+
         if not default:
             conf.update(jail_conf)
 
@@ -1089,7 +1093,7 @@ class IOCConfiguration:
             'vnet2_mac': 'none',
             'vnet3_mac': 'none',
             'vnet_default_interface': 'auto',
-            'devfs_ruleset': '4',
+            'devfs_ruleset': str(iocage_lib.ioc_common.IOCAGE_DEVFS_RULESET),
             'exec_start': '/bin/sh /etc/rc',
             'exec_stop': '/bin/sh /etc/rc.shutdown',
             'exec_prestart': '/usr/bin/true',
@@ -1200,6 +1204,7 @@ class IOCConfiguration:
             'nat_forwards': 'none',
             'plugin_name': 'none',
             'plugin_repository': 'none',
+            'min_dyn_devfs_ruleset': '1000',
         }
 
     def check_default_config(self):
@@ -2115,6 +2120,7 @@ class IOCJson(IOCConfiguration):
             'nat_forwards': ('string', ),
             'plugin_name': ('string', ),
             'plugin_repository': ('string', ),
+            'min_dyn_devfs_ruleset': ('string', ),
         }
 
         zfs_props = {
@@ -2393,6 +2399,22 @@ class IOCJson(IOCConfiguration):
                                 silent=self.silent,
                                 exception=ioc_exceptions.ValidationFailed
                             )
+                elif key in ('devfs_ruleset', 'min_dyn_devfs_ruleset'):
+                    try:
+                        intval = int(value)
+                        if intval <= 0:
+                            raise ValueError()
+                        conf[key] = str(intval)
+                    except ValueError:
+                        iocage_lib.ioc_common.logit(
+                            {
+                                'level': 'EXCEPTION',
+                                'message': f'Invalid {key} value: {value}'
+                            },
+                            _callback=self.callback,
+                            silent=self.silent,
+                            exception=ioc_exceptions.ValidationFailed
+                        )
 
                 return value, conf
             else:
