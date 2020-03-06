@@ -820,7 +820,7 @@ def generate_devfs_ruleset(conf, paths=None, includes=None, callback=None,
     return ruleset
 
 
-def runscript(script):
+def runscript(script, custom_env=None):
     """
     Runs the script provided and return a tuple with first value showing
     stdout and last showing stderr
@@ -838,7 +838,7 @@ def runscript(script):
 
     try:
         output = iocage_lib.ioc_exec.SilentExec(
-            script, None, unjailed=True, decode=True
+            script, None, unjailed=True, decode=True, su_env=custom_env
         )
     except iocage_lib.ioc_exceptions.CommandFailed as e:
         return None, f'Script returned non-zero status: {e}'
