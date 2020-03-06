@@ -590,37 +590,47 @@ class IOCStart(object):
         }
 
         if nat:
-            # We pass some environment variables to the shell script
-            # for nat based jails currently aiding in doing jail specific
-            # tasks in the host environment
-            pre_start_env = {
-                **os.environ,
-                'INTERNAL_DEFAULT_ROUTER': self.defaultrouter,
-                'INTERNAL_IP': self.ip4_addr.split(
-                    ','
-                )[0].split('|')[-1].split('/')[0]
-            }
-            default_gw_iface = self.host_gateways['ipv4']['interface']
-            if default_gw_iface:
-                gw_addresses = netifaces.ifaddresses(
-                    default_gw_iface
-                )[netifaces.AF_INET]
-                if gw_addresses:
-                    pre_start_env.update({
-                        'EXT_HOST': gw_addresses[0]['addr'],
-                        'EXT_BCAST': gw_addresses[0]['broadcast'],
-                    })
+            try:
+                # We pass some environment variables to the shell script
+                # for nat based jails currently aiding in doing jail specific
+                # tasks in the host environment
+                pre_start_env = {
+                    **os.environ,
+                    'INTERNAL_DEFAULT_ROUTER': self.defaultrouter,
+                    'INTERNAL_IP': self.ip4_addr.split(
+                        ','
+                    )[0].split('|')[-1].split('/')[0]
+                }
+                default_gw_iface = self.host_gateways['ipv4']['interface']
+                if default_gw_iface:
+                    gw_addresses = netifaces.ifaddresses(
+                        default_gw_iface
+                    )[netifaces.AF_INET]
+                    if gw_addresses:
+                        pre_start_env.update({
+                            'EXT_HOST': gw_addresses[0]['addr'],
+                            'EXT_BCAST': gw_addresses[0]['broadcast'],
+                        })
 
-            if vnet:
-                pre_start_env[
-                    'INTERNAL_BROADCAST_IP'
-                ] = ipaddress.IPv4Network(
-                    f'{pre_start_env["INTERNAL_IP"]}/30', False
-                ).broadcast_address.exploded
-            else:
-                pre_start_env['INTERNAL_BROADCAST_IP'] = pre_start_env[
-                    'INTERNAL_IP'
-                ]
+                if vnet:
+                    pre_start_env[
+                        'INTERNAL_BROADCAST_IP'
+                    ] = ipaddress.IPv4Network(
+                        f'{pre_start_env["INTERNAL_IP"]}/30', False
+                    ).broadcast_address.exploded
+                else:
+                    pre_start_env['INTERNAL_BROADCAST_IP'] = pre_start_env[
+                        'INTERNAL_IP'
+                    ]
+            except Exception as e:
+                pre_start_env = None
+                iocage_lib.ioc_common.logit({
+                    'level': 'ERROR',
+                    'message': f'Failed to setup environment for exec.prestart: {e}'
+                },
+                    _callback=self.callback,
+                    silent=self.silent)
+
         else:
             pre_start_env = None
 
