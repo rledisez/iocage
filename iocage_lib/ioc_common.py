@@ -1144,3 +1144,14 @@ def tmp_dataset_checks(_callback, silent):
                 _callback=_callback,
                 silent=silent
             )
+
+
+def default_gateway_addresses():
+    default_gw_iface = get_host_gateways()['ipv4']['interface']
+    if default_gw_iface:
+        gw_addresses = netifaces.ifaddresses(
+            default_gw_iface
+        )[netifaces.AF_INET]
+        if gw_addresses:
+            return gw_addresses
+    return []
