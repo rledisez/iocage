@@ -658,6 +658,8 @@ class IOCStart(object):
                     else:
                         network_mode = 'other'
                     f.write(f'NETWORKING_MODE={network_mode}\n')
+                    if nat:
+                        f.write(f'NAT_FORWARDS={nat_forwards}\n')
                     gw_addresses = iocage_lib.ioc_common.default_gateway_addresses()
                     if gw_addresses:
                         f.write(f'HOST_ADDRESS={gw_addresses[0]["addr"]}\n')
