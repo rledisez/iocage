@@ -627,6 +627,7 @@ class IOCStart(object):
             }
             gw_addresses = iocage_lib.ioc_common.default_gateway_addresses()
             if gw_addresses:
+                gw_addresses = [d for d in gw_addresses if d['addr'] == d['broadcast']] or gw_addresses
                 pre_start_env.update({
                     'EXT_HOST': gw_addresses[0]['addr'],
                     'EXT_BCAST': gw_addresses[0]['broadcast'],
@@ -677,6 +678,7 @@ class IOCStart(object):
                     f.write(f'NAT_FORWARDS={nat_forwards}\n')
                 gw_addresses = iocage_lib.ioc_common.default_gateway_addresses()
                 if gw_addresses:
+                    gw_addresses = [d for d in gw_addresses if d['addr'] == d['broadcast']] or gw_addresses
                     f.write(f'HOST_ADDRESS={gw_addresses[0]["addr"]}\n')
                     f.write(f'HOST_ADDRESS_BCAST={gw_addresses[0]["broadcast"]}\n')
 
