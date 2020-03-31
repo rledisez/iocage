@@ -631,9 +631,9 @@ class IOCStart(object):
                 # so we look for them first and then if we are unable to find any, we default to the
                 # first one present on the gateway
                 # Also CARP ip is going to be /32, hence the addr == broadcast check
-                gw_addresses = [d for d in gw_addresses if d['addr'] == d['broadcast']] or gw_addresses
+                ext_host = [d for d in gw_addresses if d['carp_ip']] or gw_addresses
                 pre_start_env.update({
-                    'EXT_HOST': gw_addresses[0]['addr'],
+                    'EXT_HOST': ext_host[0]['addr'],
                     'EXT_BCAST': gw_addresses[0]['broadcast'],
                 })
 
@@ -682,8 +682,8 @@ class IOCStart(object):
                     f.write(f'NAT_FORWARDS={nat_forwards}\n')
                 gw_addresses = iocage_lib.ioc_common.default_gateway_addresses()
                 if gw_addresses:
-                    gw_addresses = [d for d in gw_addresses if d['addr'] == d['broadcast']] or gw_addresses
-                    f.write(f'HOST_ADDRESS={gw_addresses[0]["addr"]}\n')
+                    ext_host = [d for d in gw_addresses if d['carp_ip']] or gw_addresses
+                    f.write(f'HOST_ADDRESS={ext_host[0]["addr"]}\n')
                     f.write(f'HOST_ADDRESS_BCAST={gw_addresses[0]["broadcast"]}\n')
 
         start = su.Popen(
@@ -1711,8 +1711,20 @@ class IOCStart(object):
         return pf_conf
 
     def __add_nat_ipfw__(self, nat_interface, forwards):
+        carp_ip = None
+        if self.get_default_interface() == nat_interface:
+            gw_addresses = [a for a in iocage_lib.ioc_common.default_gateway_addresses() if a['carp_ip']]
+            if gw_addresses:
+                # We have a CARP IP, we would be using that for writing out ipfw rules
+                # Why we require this is because in HA ipfw is unable to correctly select the CARP IP
+                # and likely picks the first ip on the interface, thus user fails to access the jail
+                # via CARP IP even though it was on the same interface. So when we have a CARP IP
+                # on nat_interface, we will default to using that for writing out ipfw rules.
+                # Why this isn't reflected in pf is because we don't use pf in TN HA jails.
+                carp_ip = gw_addresses[0]['addr']
+        via_rule = carp_ip if carp_ip else nat_interface
         ipfw_conf = '/tmp/iocage_nat_ipfw.conf'
-        nat_rule = f'ipfw -q nat 462 config if {nat_interface} same_ports'
+        nat_rule = f'ipfw -q nat 462 config {"ip" if carp_ip else "if"} {via_rule} same_ports'
         self.log.debug(f'Initial rule: {nat_rule}')
         rdrs = ''
         ip4_addr = self.ip4_addr.split('|')[1].rsplit('/')[0]
@@ -1722,9 +1734,9 @@ class IOCStart(object):
         rules = [
             'ipfw -q flush',
             f'ipfw -q add 100 nat 462 ip4 from {nat_network} to any'
-            f' out via {nat_interface}',
+            f' out via {via_rule}',
             'ipfw -q add 101 nat 462 ip4 from any to any in via'
-            f' {nat_interface}'
+            f' {via_rule}'
         ]
         self.log.debug(f'Rules: {rules}')
 
@@ -1752,7 +1764,7 @@ class IOCStart(object):
                         f'Inserted: {final_line}{rdrs} into rules at index 1'
                     )
 
-            if rules[1].endswith(nat_interface):
+            if rules[1].endswith(via_rule):
                 # They don't have any port-forwards or the file is empty
                 if rdrs:
                     nat_rule += rdrs
