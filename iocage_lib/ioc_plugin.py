@@ -194,7 +194,7 @@ class IOCPlugin(object):
         return version_dict
 
     @staticmethod
-    def retrieve_plugin_index_data(plugin_index_path):
+    def retrieve_plugin_index_data(plugin_index_path, expand_abi=True):
         plugin_index = {}
         index_path = os.path.join(plugin_index_path, 'INDEX')
         if not os.path.exists(index_path):
@@ -216,10 +216,9 @@ class IOCPlugin(object):
             if not any(plugin_manifest_data.get(k) for k in ('release', 'packagesite')):
                 continue
 
-            if '${ABI}' in plugin_manifest_data['packagesite']:
-                plugin_manifest_data['packagesite'] = plugin_manifest_data['packagesite'].replace(
-                    '${ABI}',
-                    f'FreeBSD:{plugin_manifest_data["release"].split("-")[0].split(".")[0]}:amd64'
+            if expand_abi and '${ABI}' in plugin_manifest_data['packagesite']:
+                plugin_manifest_data['packagesite'] = IOCPlugin.expand_abi_with_specified_release(
+                    plugin_manifest_data['packagesite'], plugin_manifest_data['release']
                 )
 
             plugin_index[plugin] = {
@@ -229,6 +228,12 @@ class IOCPlugin(object):
             }
 
         return plugin_index
+
+    @staticmethod
+    def expand_abi_with_specified_release(packagesite, release):
+        return packagesite.replace(
+            '${ABI}', f'FreeBSD:{release.split("-")[0].split(".")[0]}:amd64'
+        )
 
     def fetch_plugin_versions(self):
         self.pull_clone_git_repo()
@@ -1350,10 +1355,11 @@ fingerprint: {fingerprint}
 
     def _plugin_json_file(self):
         plugin_name = self.plugin.rsplit('_', 1)[0]
+        jail_name = self.jail or plugin_name
         try:
             with open(
                 os.path.join(
-                    self.iocroot, 'jails', plugin_name, f'{plugin_name}.json'
+                    self.iocroot, 'jails', jail_name, f'{plugin_name}.json'
                 ), 'r'
             ) as f:
                 manifest = json.loads(f.read())
@@ -1361,7 +1367,7 @@ fingerprint: {fingerprint}
             iocage_lib.ioc_common.logit(
                 {
                     'level': 'EXCEPTION',
-                    'message': f'Failed retrieving {plugin_name} json'
+                    'message': f'Failed retrieving {jail_name} json'
                 },
                 _callback=self.callback
             )
