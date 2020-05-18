@@ -752,7 +752,7 @@ def generate_devfs_ruleset(conf, paths=None, includes=None, callback=None,
     ruleset_list = [int(i) for i in devfs_rulesets.stdout.splitlines()]
 
     if ruleset != '4':
-        if int(ruleset) in ruleset_list:
+        if int(ruleset) == 0 or int(ruleset) in ruleset_list:
             return str(ruleset)
 
         logit({
