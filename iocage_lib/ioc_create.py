@@ -1038,10 +1038,6 @@ ipv6_activate_all_interfaces=\"YES\"
             su.Popen(
                 ['mount', '-F', f'{location}/fstab', '-a']).communicate()
 
-        su.Popen(['sysrc', '-f', f'{location}/root/etc/rc.conf',
-                  f'hostname={host_hostname.replace("_", "-")}'],
-                 stdout=su.PIPE).communicate()
-
         if basejail:
             su.Popen(
                 ['umount', '-F', f'{location}/fstab', '-a']).communicate()
