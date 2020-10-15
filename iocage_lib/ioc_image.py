@@ -284,12 +284,15 @@ class IOCImage(object):
                         )
                     ], stdin=su.PIPE
                 )
-                if compression_algo == 'zip':
-                    data = f.open(name).read()
-                else:
-                    data = f.extractfile(member).read()
 
-                recv.stdin.write(data)
+                chunk_size = 10 * 1024 * 1024
+                with (f.open(name) if compression_algo == 'zip' else f.extractfile(member)) as file:
+                    while True:
+                        data = file.read(chunk_size)
+                        if not data:
+                            break
+                        recv.stdin.write(data)
+
                 recv.communicate()
 
         # Cleanup our mess.
