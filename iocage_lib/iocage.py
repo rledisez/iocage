@@ -1852,7 +1852,7 @@ class IOCage:
             self.jail = jail
             self.update(pkgs)
 
-    def update(self, pkgs=False):
+    def update(self, pkgs=False, update_jail=True):
         """Updates a jail to the latest patchset."""
         if self._all:
             self.update_all(pkgs)
@@ -1870,6 +1870,7 @@ class IOCage:
         jail_type = conf["type"]
         updateable = True if jail_type in (
             "jail", "clonejail", "pluginv2") else False
+        plugin_jail = jail_type in ('plugin', 'pluginv2')
 
         if updateable:
             date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -1916,7 +1917,7 @@ class IOCage:
                 self.stop()
                 self.silent = _silent
         else:
-            if pkgs and not (jail_type in ('plugin', 'pluginv2')):
+            if pkgs and not plugin_jail:
                 # Let's update pkg repos first
                 ioc_common.logit({
                     'level': 'INFO',
@@ -1947,7 +1948,7 @@ class IOCage:
                     'message': 'Upgraded pkgs successfully.'
                 })
 
-            if jail_type == "pluginv2" or jail_type == "plugin":
+            if plugin_jail:
                 # TODO: Warn about erasing all pkgs
                 ioc_common.logit({
                     'level': 'INFO',
@@ -1973,10 +1974,8 @@ class IOCage:
             is_basejail = ioc_common.check_truthy(conf['basejail'])
             params = [] if is_basejail else [True, uuid]
             try:
-                ioc_fetch.IOCFetch(
-                    release,
-                    callback=self.callback
-                ).fetch_update(*params)
+                if plugin_jail and update_jail:
+                    ioc_fetch.IOCFetch(release, callback=self.callback).fetch_update(*params)
             finally:
                 if not started and jail_type == 'pluginv2':
                     silent = self.silent
