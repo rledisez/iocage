@@ -114,6 +114,7 @@ class Snapshot(Resource):
     zfs_resource = 'zfs'
 
     def __init__(self, *args, **kwargs):
+        kwargs['cache'] = False
         super().__init__(*args, **kwargs)
         if '@' in self.resource_name:
             self.name = self.resource_name.split('@', 1)[-1]
