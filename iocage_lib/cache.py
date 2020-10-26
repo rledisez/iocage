@@ -87,7 +87,7 @@ class Cache:
                 for ds in get_all_dependents():
                     self.dataset_dep_data[ds] = []
                     for k in self.dataset_dep_data:
-                        if ds.startswith(k):
+                        if ds == k or ds.startswith(f'{k}/'):
                             self.dataset_dep_data[k].append(ds)
 
             return get_dependents_with_depth(
