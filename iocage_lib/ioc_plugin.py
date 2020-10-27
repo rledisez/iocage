@@ -1343,6 +1343,22 @@ fingerprint: {fingerprint}
 
         self.update(jid)
 
+        # We will run post upgrade script if any for the plugin
+        if plugin_conf['artifact']:
+            post_upgrade_hook = os.path.join(
+                self.iocroot, 'jails', self.jail, 'plugin/post_upgrade.sh'
+            )
+            if os.path.exists(post_upgrade_hook):
+                iocage_lib.ioc_common.logit(
+                    {
+                        'level': 'INFO',
+                        'message': 'Running post_upgrade.sh... '
+                    },
+                    _callback=self.callback,
+                    silent=self.silent
+                )
+                self.__run_hook_script__(post_upgrade_hook)
+
         return new_release
 
     def __snapshot_jail__(self, name):
