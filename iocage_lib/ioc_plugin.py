@@ -1498,7 +1498,7 @@ fingerprint: {fingerprint}
             plugin_conf["release"].rsplit("-", 1)[0].rsplit("-", 1)[0])
 
         iocage_lib.ioc_common.check_release_newer(
-            manifest_major_minor, self.callback, self.silent)
+            manifest_major_minor, self.callback, self.silent, True, True)
 
         if not upgrade and jail_rel < manifest_rel:
             self.__remove_snapshot__(name="update")
