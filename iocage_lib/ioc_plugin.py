@@ -1313,6 +1313,7 @@ fingerprint: {fingerprint}
                 self.iocroot, 'jails', self.jail, f'{plugin_name}.json'
             )
         )
+        self._execute_pre_update_hook()
 
         release_p = pathlib.Path(f"{self.iocroot}/releases/{plugin_release}")
 
@@ -1344,7 +1345,13 @@ fingerprint: {fingerprint}
             snapshot=False, snap_name=f'ioc_plugin_upgrade_{self.date}'
         )
 
-        self.update(jid)
+        jail_dir = os.path.join(self.iocroot, 'jails', self.jail)
+        iocage_lib.ioc_stop.IOCStop(
+            self.jail, jail_dir, silent=True, force=True, callback=self.callback
+        )
+        iocage_lib.ioc_start.IOCStart(self.jail, jail_dir, silent=True)
+        _, jid = iocage_lib.ioc_list.IOCList().list_get_jid(self.jail)
+        self.update_impl(jid, {'execute_pre_update_hook': False})
 
         return new_release
 
