@@ -1076,31 +1076,37 @@ fingerprint: {fingerprint}
             self.start_rc()
 
     def update(self, jid):
-        iocage_lib.ioc_common.logit(
-            {
-                "level": "INFO",
-                "message": f"Snapshotting {self.jail}... "
-            },
-            _callback=self.callback,
-            silent=self.silent)
+        return self.update_impl(jid)
 
-        try:
-            self.__snapshot_jail__(name='update')
-        except iocage_lib.ioc_exceptions.Exists:
-            # User may have run update already (so clean) or they created this
-            # snapshot purposely, this is OK
-            pass
+    def update_impl(self, jid, options=None):
+        options = options or {}
+        if options.get('snapshot', True):
+            iocage_lib.ioc_common.logit(
+                {
+                    "level": "INFO",
+                    "message": f"Snapshotting {self.jail}... "
+                },
+                _callback=self.callback,
+                silent=self.silent)
 
-        iocage_lib.ioc_common.logit(
-            {
-                "level": "INFO",
-                "message": "Updating plugin INDEX... "
-            },
-            _callback=self.callback,
-            silent=self.silent)
-        self.pull_clone_git_repo()
+            try:
+                self.__snapshot_jail__(name='update')
+            except iocage_lib.ioc_exceptions.Exists:
+                # User may have run update already (so clean) or they created this
+                # snapshot purposely, this is OK
+                pass
 
-        plugin_conf = self._load_plugin_json()
+        if options.get('update_index', True):
+            iocage_lib.ioc_common.logit(
+                {
+                    "level": "INFO",
+                    "message": "Updating plugin INDEX... "
+                },
+                _callback=self.callback,
+                silent=self.silent)
+            self.pull_clone_git_repo()
+
+        plugin_conf = options.get('plugin_conf') or self._load_plugin_json()
         self.__check_manifest__(plugin_conf, upgrade=False)
 
         if plugin_conf['artifact']:
@@ -1113,19 +1119,8 @@ fingerprint: {fingerprint}
                 silent=self.silent
             )
             self.__update_pull_plugin_artifact__(plugin_conf)
-            pre_update_hook = os.path.join(
-                self.iocroot, 'jails', self.jail, 'plugin/pre_update.sh'
-            )
-            if os.path.exists(pre_update_hook):
-                iocage_lib.ioc_common.logit(
-                    {
-                        'level': 'INFO',
-                        'message': 'Running pre_update.sh... '
-                    },
-                    _callback=self.callback,
-                    silent=self.silent
-                )
-                self.__run_hook_script__(pre_update_hook)
+            if options.get('execute_pre_update_hook', True):
+                self._execute_pre_update_hook()
 
         iocage_lib.ioc_common.logit(
             {
@@ -1150,21 +1145,29 @@ fingerprint: {fingerprint}
             # were removed when we removed pkgs and the overlay directory
             # is supposed to bring them back, this does that
             self.__update_pull_plugin_artifact__(plugin_conf)
-            post_update_hook = os.path.join(
-                self.iocroot, 'jails', self.jail, 'plugin/post_update.sh'
-            )
-            if os.path.exists(post_update_hook):
-                iocage_lib.ioc_common.logit(
-                    {
-                        'level': 'INFO',
-                        'message': 'Running post_update.sh... '
-                    },
-                    _callback=self.callback,
-                    silent=self.silent
-                )
-                self.__run_hook_script__(post_update_hook)
+            if options.get('execute_post_update_hook', True):
+                self._execute_post_update_hook()
 
         self.__remove_snapshot__(name="update")
+
+    def _execute_pre_update_hook(self):
+        self._execute_hook_script('pre_update.sh')
+
+    def _execute_post_update_hook(self):
+        self._execute_hook_script('post_update.sh')
+
+    def _execute_hook_script(self, script):
+        hook_path = os.path.join(self.iocroot, 'jails', self.jail, 'plugin', script)
+        if os.path.exists(hook_path):
+            iocage_lib.ioc_common.logit(
+                {
+                    'level': 'INFO',
+                    'message': f'Running {script} script'
+                },
+                _callback=self.callback,
+                silent=self.silent
+            )
+            self.__run_hook_script__(hook_path)
 
     def __update_pull_plugin_artifact__(self, plugin_conf):
         """Pull the latest artifact to be sure we're up to date"""
