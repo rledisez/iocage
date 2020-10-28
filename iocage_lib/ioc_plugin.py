@@ -1080,33 +1080,31 @@ fingerprint: {fingerprint}
 
     def update_impl(self, jid, options=None):
         options = options or {}
-        if options.get('snapshot', True):
-            iocage_lib.ioc_common.logit(
-                {
-                    "level": "INFO",
-                    "message": f"Snapshotting {self.jail}... "
-                },
-                _callback=self.callback,
-                silent=self.silent)
+        iocage_lib.ioc_common.logit(
+            {
+                "level": "INFO",
+                "message": f"Snapshotting {self.jail}... "
+            },
+            _callback=self.callback,
+            silent=self.silent)
 
-            try:
-                self.__snapshot_jail__(name='update')
-            except iocage_lib.ioc_exceptions.Exists:
-                # User may have run update already (so clean) or they created this
-                # snapshot purposely, this is OK
-                pass
+        try:
+            self.__snapshot_jail__(name='update')
+        except iocage_lib.ioc_exceptions.Exists:
+            # User may have run update already (so clean) or they created this
+            # snapshot purposely, this is OK
+            pass
 
-        if options.get('update_index', True):
-            iocage_lib.ioc_common.logit(
-                {
-                    "level": "INFO",
-                    "message": "Updating plugin INDEX... "
-                },
-                _callback=self.callback,
-                silent=self.silent)
-            self.pull_clone_git_repo()
+        iocage_lib.ioc_common.logit(
+            {
+                "level": "INFO",
+                "message": "Updating plugin INDEX... "
+            },
+            _callback=self.callback,
+            silent=self.silent)
+        self.pull_clone_git_repo()
 
-        plugin_conf = options.get('plugin_conf') or self._load_plugin_json()
+        plugin_conf = self._load_plugin_json()
         self.__check_manifest__(plugin_conf, upgrade=False)
 
         if plugin_conf['artifact']:
@@ -1122,14 +1120,15 @@ fingerprint: {fingerprint}
             if options.get('execute_pre_update_hook', True):
                 self._execute_pre_update_hook()
 
-        iocage_lib.ioc_common.logit(
-            {
-                "level": "INFO",
-                "message": "Removing old pkgs... "
-            },
-            _callback=self.callback,
-            silent=self.silent)
-        self.__update_pkg_remove__(jid)
+        if options.get('remove_packages', True):
+            iocage_lib.ioc_common.logit(
+                {
+                    "level": "INFO",
+                    "message": "Removing old pkgs... "
+                },
+                _callback=self.callback,
+                silent=self.silent)
+            self.__update_pkg_remove__(jid)
 
         iocage_lib.ioc_common.logit(
             {
@@ -1344,6 +1343,7 @@ fingerprint: {fingerprint}
         ).upgrade_basejail(
             snapshot=False, snap_name=f'ioc_plugin_upgrade_{self.date}'
         )
+        self.__update_pkg_remove__(jid)
 
         jail_dir = os.path.join(self.iocroot, 'jails', self.jail)
         iocage_lib.ioc_stop.IOCStop(
@@ -1351,7 +1351,9 @@ fingerprint: {fingerprint}
         )
         iocage_lib.ioc_start.IOCStart(self.jail, jail_dir, silent=True)
         _, jid = iocage_lib.ioc_list.IOCList().list_get_jid(self.jail)
-        self.update_impl(jid, {'execute_pre_update_hook': False})
+        self.update_impl(
+            jid, {'execute_pre_update_hook': False, 'remove_packages': False}
+        )
 
         return new_release
 
