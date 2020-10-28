@@ -1076,6 +1076,10 @@ fingerprint: {fingerprint}
             self.start_rc()
 
     def update(self, jid):
+        return self.update_impl(jid)
+
+    def update_impl(self, jid, options=None):
+        options = options or {}
         iocage_lib.ioc_common.logit(
             {
                 "level": "INFO",
@@ -1113,28 +1117,18 @@ fingerprint: {fingerprint}
                 silent=self.silent
             )
             self.__update_pull_plugin_artifact__(plugin_conf)
-            pre_update_hook = os.path.join(
-                self.iocroot, 'jails', self.jail, 'plugin/pre_update.sh'
-            )
-            if os.path.exists(pre_update_hook):
-                iocage_lib.ioc_common.logit(
-                    {
-                        'level': 'INFO',
-                        'message': 'Running pre_update.sh... '
-                    },
-                    _callback=self.callback,
-                    silent=self.silent
-                )
-                self.__run_hook_script__(pre_update_hook)
+            if options.get('execute_pre_update_hook', True):
+                self._execute_pre_update_hook()
 
-        iocage_lib.ioc_common.logit(
-            {
-                "level": "INFO",
-                "message": "Removing old pkgs... "
-            },
-            _callback=self.callback,
-            silent=self.silent)
-        self.__update_pkg_remove__(jid)
+        if options.get('remove_packages', True):
+            iocage_lib.ioc_common.logit(
+                {
+                    "level": "INFO",
+                    "message": "Removing old pkgs... "
+                },
+                _callback=self.callback,
+                silent=self.silent)
+            self.__update_pkg_remove__(jid)
 
         iocage_lib.ioc_common.logit(
             {
@@ -1150,21 +1144,29 @@ fingerprint: {fingerprint}
             # were removed when we removed pkgs and the overlay directory
             # is supposed to bring them back, this does that
             self.__update_pull_plugin_artifact__(plugin_conf)
-            post_update_hook = os.path.join(
-                self.iocroot, 'jails', self.jail, 'plugin/post_update.sh'
-            )
-            if os.path.exists(post_update_hook):
-                iocage_lib.ioc_common.logit(
-                    {
-                        'level': 'INFO',
-                        'message': 'Running post_update.sh... '
-                    },
-                    _callback=self.callback,
-                    silent=self.silent
-                )
-                self.__run_hook_script__(post_update_hook)
+            if options.get('execute_post_update_hook', True):
+                self._execute_post_update_hook()
 
         self.__remove_snapshot__(name="update")
+
+    def _execute_pre_update_hook(self):
+        self._execute_hook_script('pre_update.sh')
+
+    def _execute_post_update_hook(self):
+        self._execute_hook_script('post_update.sh')
+
+    def _execute_hook_script(self, script):
+        hook_path = os.path.join(self.iocroot, 'jails', self.jail, 'plugin', script)
+        if os.path.exists(hook_path):
+            iocage_lib.ioc_common.logit(
+                {
+                    'level': 'INFO',
+                    'message': f'Running {script} script'
+                },
+                _callback=self.callback,
+                silent=self.silent
+            )
+            self.__run_hook_script__(hook_path)
 
     def __update_pull_plugin_artifact__(self, plugin_conf):
         """Pull the latest artifact to be sure we're up to date"""
@@ -1310,6 +1312,7 @@ fingerprint: {fingerprint}
                 self.iocroot, 'jails', self.jail, f'{plugin_name}.json'
             )
         )
+        self._execute_pre_update_hook()
 
         release_p = pathlib.Path(f"{self.iocroot}/releases/{plugin_release}")
 
@@ -1340,8 +1343,17 @@ fingerprint: {fingerprint}
         ).upgrade_basejail(
             snapshot=False, snap_name=f'ioc_plugin_upgrade_{self.date}'
         )
+        self.__update_pkg_remove__(jid)
 
-        self.update(jid)
+        jail_dir = os.path.join(self.iocroot, 'jails', self.jail)
+        iocage_lib.ioc_stop.IOCStop(
+            self.jail, jail_dir, silent=True, force=True, callback=self.callback
+        )
+        iocage_lib.ioc_start.IOCStart(self.jail, jail_dir, silent=True)
+        _, jid = iocage_lib.ioc_list.IOCList().list_get_jid(self.jail)
+        self.update_impl(
+            jid, {'execute_pre_update_hook': False, 'remove_packages': False}
+        )
 
         return new_release
 
