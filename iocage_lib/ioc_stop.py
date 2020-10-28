@@ -54,7 +54,7 @@ class IOCStop(object):
             self.conf = iocage_lib.ioc_json.IOCJson(
                 path, suppress_log=True).json_get_value('all')
             self.status, self.jid = iocage_lib.ioc_list.IOCList().list_get_jid(
-                uuid)
+                self.uuid)
             self.nics = self.conf['interfaces']
             self.__stop_jail__()
         except (Exception, SystemExit) as e:
