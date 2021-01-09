@@ -42,10 +42,14 @@ class Cache:
                         all_properties([p for p in pools], types=['filesystem'])
                     )
                 for p in filter(
-                    lambda p: self.dataset_data.get(p, {}).get('org.freebsd.ioc:active') == 'yes',
-                    pools
+                    lambda p: (
+                        p.get('org.freebsd.ioc:active') == 'yes' and p.get('mounted') == 'yes' and not(
+                            p.get('encryption', 'off') != 'off' and p.get('keystatus', 'available') != 'available'
+                        )
+                    ),
+                    map(lambda p: {**self.dataset_data.get(p, {}), 'name': p}, pools)
                 ):
-                    self.ioc_pool = p
+                    self.ioc_pool = p['name']
             return self.ioc_pool
         finally:
             if lock:
