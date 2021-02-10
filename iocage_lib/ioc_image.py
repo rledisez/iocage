@@ -74,7 +74,7 @@ class IOCImage(object):
                 silent=self.silent)
 
         datasets = su.Popen(
-            ["zfs", "list", "-H", "-r", "-o", "name", image_path],
+            ["zfs", "list", "-H", "-r", "-t", "filesystem", "-o", "name", image_path],
             stdout=su.PIPE,
             stderr=su.PIPE).communicate()[0].decode("utf-8").split()
 
