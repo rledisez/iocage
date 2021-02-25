@@ -203,7 +203,7 @@ class IOCFstab(object):
         # `actions` specify on which `action` to raise validation error
         dests = OrderedDict()
         verrors = []
-        jail_root = f'{self.iocroot}/jails/{self.uuid}/root'
+        jail_root = self.__fstab_encode__(f'{self.iocroot}/jails/{self.uuid}/root')
 
         for index, line in enumerate(fstab):
             # Comment
