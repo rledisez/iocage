@@ -270,10 +270,10 @@ class IOCDestroy:
 
         try:
             iocage_lib.ioc_stop.IOCStop(uuid, path, silent=True)
-        except (FileNotFoundError, RuntimeError, SystemExit):
+        except (FileNotFoundError, RuntimeError, SystemExit, iocage_lib.ioc_exceptions.JailMissingConfiguration):
             # Broad exception as we don't care why this failed. iocage
             # may have been killed before configuration could be made,
-            # it's meant to be nuked.
+            # it's meant to be nuked or is a malformed jail which does not has it's configuration file present
             pass
 
         try:
