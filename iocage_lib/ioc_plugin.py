@@ -164,8 +164,8 @@ class IOCPlugin(object):
                         raise FileNotFoundError(f'{packagesite_path} not found')
 
                     with open(packagesite_path, 'r') as f:
-                        for line in f.read().split('\n'):
-                            searched = RE_PLUGIN_VERSION.findall(line)
+                        for line in f:
+                            searched = RE_PLUGIN_VERSION.findall(line.strip('\r\n'))
                             if not searched:
                                 continue
                             name = searched[0].rsplit('/', 1)[-1]
