@@ -59,7 +59,7 @@ from iocage_lib.dataset import Dataset
 
 
 GIT_LOCK = threading.Lock()
-RE_PLUGIN_VERSION = re.compile(r'"path":"([/\.\+,\d\w-]*)\.txz"')
+RE_PLUGIN_VERSION = re.compile(r'"path"\s*:\s*"([/\.\+,\d\w-]*)\.(?:\btxz\b|\bpkg\b)"')
 
 
 class IOCPlugin(object):
