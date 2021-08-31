@@ -1852,6 +1852,29 @@ class IOCage:
             self.jail = jail
             self.update(pkgs)
 
+    def update_plugin(self, update_jail=True):
+        uuid, path = self.__check_jail_existence__()
+        conf = ioc_json.IOCJson(path, silent=self.silent, stop=True).json_get_value('all')
+        if conf['type'] != 'pluginv2':
+            ioc_common.logit(
+                {
+                    'level': 'EXCEPTION',
+                    'message': f'{uuid!r} is not a plugin'
+                })
+
+        plugin_obj = ioc_plugin.IOCPlugin(
+            jail=uuid, plugin=conf['plugin_name'], git_repository=conf['plugin_repository'], callback=self.callback,
+            silent=True,
+        )
+        plugin_obj.pull_clone_git_repo()
+        plugin_conf = plugin_obj._load_plugin_json()
+        jail_rel = int(conf['release'].split('.', 1)[0])
+        manifest_rel = int(plugin_conf['release'].split('.', 1)[0])
+        if jail_rel < manifest_rel:
+            return self.upgrade(None)
+        else:
+            return self.update(False, update_jail)
+
     def update(self, pkgs=False, update_jail=True):
         """Updates a jail to the latest patchset."""
         if self._all:
