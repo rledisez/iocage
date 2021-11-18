@@ -75,7 +75,7 @@ def all_properties(
     fs = defaultdict(dict)
     for line in filter(bool, data):
         name, prop = line.split('\t')[:2]
-        fs[name.strip()][prop.strip()] = line.split(
+        fs[name][prop.strip()] = line.split(
             '\t', maxsplit=2
         )[-1].strip()
 
