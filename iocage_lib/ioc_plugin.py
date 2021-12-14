@@ -1304,6 +1304,17 @@ fingerprint: {fingerprint}
         iocage_lib.ioc_common.check_release_newer(
             plugin_release, self.callback, self.silent, major_only=True)
 
+        if plugin_conf['artifact']:
+            iocage_lib.ioc_common.logit(
+                {
+                    'level': 'INFO',
+                    'message': 'Updating plugin artifact... '
+                },
+                _callback=self.callback,
+                silent=self.silent
+            )
+            self.__update_pull_plugin_artifact__(plugin_conf)
+
         # We want the new json to live with the jail
         plugin_name = self.plugin.rsplit('_', 1)[0]
         shutil.copy(
