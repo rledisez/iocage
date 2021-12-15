@@ -55,6 +55,7 @@ import iocage_lib.ioc_exceptions
 import texttable
 
 from iocage_lib.cache import cache
+from iocage_lib.create_utils import strip_jail_for_base_jail
 from iocage_lib.dataset import Dataset
 
 
@@ -1348,6 +1349,12 @@ fingerprint: {fingerprint}
             },
             _callback=self.callback,
             silent=self.silent)
+
+        ioc_json_obj = iocage_lib.ioc_json.IOCJson(os.path.join(self.iocroot, 'jails', self.jail), silent=True)
+        config = ioc_json_obj.json_get_value('all')
+        if not config['basejail']:
+            config = strip_jail_for_base_jail(config, plugin_conf['release'], self.iocroot, self.jail)
+            ioc_json_obj.json_write(config)
 
         new_release = iocage_lib.ioc_upgrade.IOCUpgrade(
             plugin_release, path, silent=True
