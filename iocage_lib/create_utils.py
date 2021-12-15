@@ -1,5 +1,5 @@
 import os
-import shutil
+import subprocess
 
 import iocage_lib.ioc_fstab
 
@@ -22,7 +22,8 @@ def strip_jail_for_base_jail(config: dict, release: str, iocroot: str, jail_uuid
         destination = os.path.join(iocroot, 'jails', jail_uuid, 'root', base_dir)
 
         # This reduces the REFER of the basejail.
-        shutil.rmtree(destination, ignore_errors=True)
+        # Just much faster by almost a factor of 2 than the builtins.
+        subprocess.Popen(['rm', '-r', '-f', destination]).communicate()
         os.mkdir(destination)
 
         iocage_lib.ioc_fstab.IOCFstab(jail_uuid, 'add', source, destination, 'nullfs', 'ro', '0', '0', silent=True)
