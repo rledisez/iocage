@@ -43,6 +43,7 @@ import dns.exception
 import shutil
 
 from iocage_lib.cache import cache
+from iocage_lib.create_utils import strip_jail_for_base_jail
 from iocage_lib.dataset import Dataset
 
 
@@ -622,36 +623,7 @@ class IOCCreate(object):
                     location, "rtsold_enable", rtsold_enable)
 
         if self.basejail or self.plugin:
-            basedirs = ["bin", "boot", "lib", "libexec", "rescue", "sbin",
-                        "usr/bin", "usr/include", "usr/lib",
-                        "usr/libexec", "usr/sbin", "usr/share",
-                        "usr/libdata", "usr/lib32"]
-
-            if "-STABLE" in self.release:
-                # HardenedBSD does not have this.
-                basedirs.remove("usr/lib32")
-
-            for bdir in basedirs:
-                if "-RELEASE" not in self.release and "-STABLE" not in \
-                        self.release:
-                    _type = "templates"
-                else:
-                    _type = "releases"
-
-                source = f"{self.iocroot}/{_type}/{self.release}/root/{bdir}"
-                destination = f"{self.iocroot}/jails/{jail_uuid}/root/{bdir}"
-
-                # This reduces the REFER of the basejail.
-                # Just much faster by almost a factor of 2 than the builtins.
-                su.Popen(["rm", "-r", "-f", destination]).communicate()
-                os.mkdir(destination)
-
-                iocage_lib.ioc_fstab.IOCFstab(jail_uuid, "add", source,
-                                              destination, "nullfs", "ro", "0",
-                                              "0", silent=True)
-                config["basejail"] = 1
-
-            iocjson.json_write(config)
+            iocjson.json_write(strip_jail_for_base_jail(config, self.release, self.iocroot, jail_uuid))
 
         if not self.plugin:
             if self.clone:
