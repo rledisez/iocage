@@ -31,6 +31,7 @@ import tarfile
 import tempfile
 import time
 import urllib.request
+import urllib3
 
 import requests
 import requests.auth
@@ -710,40 +711,52 @@ class IOCFetch:
                     dl_progress = 0
                     last_progress = 0
 
-                    for i, chunk in enumerate(
-                        r.iter_content(chunk_size=chunk_size), 1
-                    ):
-                        if chunk:
-                            elapsed = time.time() - start
-                            dl_progress += len(chunk)
-                            txz.write(chunk)
+                    try:
+                        for i, chunk in enumerate(
+                            r.iter_content(chunk_size=chunk_size), 1
+                        ):
+                            if chunk:
+                                elapsed = time.time() - start
+                                dl_progress += len(chunk)
+                                txz.write(chunk)
 
-                            progress = float(i) / float(total)
-                            if progress >= 1.:
-                                progress = 1
-                            progress = round(progress * 100, 0)
+                                progress = float(i) / float(total)
+                                if progress >= 1.:
+                                    progress = 1
+                                progress = round(progress * 100, 0)
 
-                            if progress != last_progress:
-                                text = self.update_progress(
-                                    progress,
-                                    f'Downloading: {f}',
-                                    elapsed,
-                                    chunk_size
-                                )
+                                if progress != last_progress:
+                                    text = self.update_progress(
+                                        progress,
+                                        f'Downloading: {f}',
+                                        elapsed,
+                                        chunk_size
+                                    )
 
-                                if progress % 10 == 0:
-                                    # Not for user output, but for callback
-                                    # heartbeats
-                                    iocage_lib.ioc_common.logit(
-                                        {
-                                            'level': 'INFO',
-                                            'message': text.rstrip()
-                                        },
-                                        _callback=self.callback,
-                                        silent=True)
+                                    if progress % 10 == 0:
+                                        # Not for user output, but for callback
+                                        # heartbeats
+                                        iocage_lib.ioc_common.logit(
+                                            {
+                                                'level': 'INFO',
+                                                'message': text.rstrip()
+                                            },
+                                            _callback=self.callback,
+                                            silent=True)
 
-                            last_progress = progress
-                            start = time.time()
+                                last_progress = progress
+                                start = time.time()
+                    except requests.exceptions.ChunkedEncodingError as exc:
+                        if isinstance(exc.__cause__, urllib3.exceptions.ProtocolError):
+                            iocage_lib.ioc_common.logit(
+                                {
+                                    "level": "EXCEPTION",
+                                    "message": f"Please check your internet connection. Error: {exc.__cause__}",
+                                },
+                                _callback=self.callback
+                            )
+                        else:
+                            raise
 
     def update_progress(self, progress, display_text, elapsed, chunk_size):
         """
