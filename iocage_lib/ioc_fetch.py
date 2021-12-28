@@ -31,7 +31,6 @@ import tarfile
 import tempfile
 import time
 import urllib.request
-import urllib3
 
 import requests
 import requests.auth
@@ -747,16 +746,13 @@ class IOCFetch:
                                 last_progress = progress
                                 start = time.time()
                     except requests.exceptions.ChunkedEncodingError as exc:
-                        if isinstance(exc.__cause__, urllib3.exceptions.ProtocolError):
-                            iocage_lib.ioc_common.logit(
-                                {
-                                    "level": "EXCEPTION",
-                                    "message": f"Please check your internet connection. Error: {exc.__cause__}",
-                                },
-                                _callback=self.callback
-                            )
-                        else:
-                            raise
+                        iocage_lib.ioc_common.logit(
+                            {
+                                "level": "EXCEPTION",
+                                "message": f"Please check your internet connection. Details: {exc}",
+                            },
+                            _callback=self.callback
+                        )
 
     def update_progress(self, progress, display_text, elapsed, chunk_size):
         """
